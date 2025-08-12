@@ -1,17 +1,22 @@
 # .gitignore
 
-# File di segreti
-.env
+# Ambiente virtuale
+venv/
 
-# Ambiente virtuale di Python
-/venv/
+# Database SQLite
+db.sqlite3
 
-# Cartelle di cache di Python
+# Cache di Python
 __pycache__/
 *.pyc
 
-# Cache di VS Code
+# Segreti
+.env
+
+# File di VS Code
 .vscode/
 
-# Database di sviluppo (se usi SQLite)
-db.sqlite3
+# Immagini di test o temporanee (opzionale ma consigliato)
+*.jpg
+*.jpeg
+*.png
