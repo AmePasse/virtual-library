@@ -4,32 +4,97 @@
     <a href="{% url 'book-list' book.bookshelf.id %}">&laquo; Torna a {{ book.bookshelf.name }}</a>
     <hr>
 
-    {# Contenitore principale per i dettagli del libro (invariato) #}
+    {# Contenitore principale per i dettagli del libro #}
     <div class="book-detail-container">
-        {# ... codice della copertina e delle info del libro ... #}
+        
+        {# Colonna sinistra per la copertina #}
+        <div class="book-cover">
+            {% if book.cover_url %}
+                <img src="{{ book.cover_url }}" alt="Cover for {{ book.title }}">
+            {% else %}
+                <div style="width: 200px; height: 300px; background: #eee; text-align: center; display: flex; align-items: center; justify-content: center;">No Cover</div>
+            {% endif %}
+        </div>
+
+        {# Colonna destra per le informazioni del libro #}
+        <div class="book-info">
+            <h2>{{ book.title }}</h2>
+            <h3>by {{ book.author }}</h3>
+
+            {# Pulsanti di azione: Modifica ed Elimina #}
+            <div style="margin-bottom: 1.5em; display: flex; gap: 10px;">
+                <a href="{% url 'book-edit' book.id %}" class="btn">Modifica Libro</a>
+                
+                <form action="{% url 'book-delete' book.id %}" method="POST" onsubmit="return confirm('Sei sicuro di voler eliminare questo libro?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="background-color: #e74c3c;">Elimina Libro</button>
+                </form>
+            </div>
+
+            <p><strong>Published:</strong> {{ book.published_date|default:"N/A" }}</p>
+            
+            <hr>
+            <h4>Your Rating</h4>
+            {% if book.user_rating %}
+                <p>You rated this book: <strong>{{ book.user_rating }} / 5</strong></p>
+            {% else %}
+                <p>You haven't rated this book yet.</p>
+            {% endif %}
+
+            {# Form per aggiornare il rating #}
+            <form method="POST" style="margin-top: 1em;">
+                {% csrf_token %}
+                <label for="rating">Update your rating (1-5):</label>
+                <input type="number" name="user_rating" min="1" max="5" required style="max-width: 100px; display: inline-block; margin: 0 10px;">
+                <button type="submit">Save Rating</button>
+            </form>
+            
+            <h4 style="margin-top: 2em;">Summary</h4>
+            <p>{{ book.summary|default:"No summary available."|linebreaks }}</p>
+        </div>
     </div>
 
-    {# --- SEZIONE POSIZIONE --- #}
-    <div class="location-section">
+     {# --- INIZIA LA SEZIONE POSIZIONE MODIFICATA --- #}
+     <div class="location-section">
         <hr style="margin: 2em 0;">
         <h3>Posizione del Libro</h3>
 
+        {# Il contenitore principale ora avrà 3 colonne. Adattiamo la larghezza. #}
         <div class="location-container">
-            <div class="location-text">
+            
+            {# Colonna 1: Testo (occupa meno spazio) #}
+            <div class="location-text" style="flex-basis: 25%;">
                 <p><strong>Stanza:</strong> {{ book.bookshelf.room.name }}</p>
                 <p><strong>Libreria:</strong> {{ book.bookshelf.name }}</p>
                 <p><strong>Ripiano:</strong> {{ book.shelf_number }}</p>
             </div>
 
-            <div class="location-visualizer">
+            {# --- NUOVA COLONNA 2: Visualizzazione Scaffale --- #}
+            <div class="shelf-visualizer-column" style="flex-basis: 25%;">
+                <h4 style="margin-top: 0; text-align: center; font-family: var(--title-font);">Scaffale</h4>
+                
+                {# Riutilizziamo le classi CSS già definite in style.css #}
+                <div class="shelf-visualizer-frame">
+                    {# La magia di Django: cicliamo per il numero di ripiani #}
+                    {% for shelf_num in shelf_range %}
+                        <div class="shelf-visualizer-shelf {% if shelf_num == book.shelf_number %}highlighted{% endif %}">
+                            <span>{{ shelf_num }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {# --- FINE NUOVA COLONNA --- #}
+
+            {# Colonna 3: Pianta della stanza (occupa più spazio) #}
+            <div class="location-visualizer" style="flex-basis: 50%;">
                 <div id="room-plan-canvas" style="width: 100%; height: 400px; background-color: #f9f9f9; border: 1px solid var(--border-color); border-radius: var(--border-radius);"></div>
             </div>
         </div>
     </div>
+    {# --- FINE SEZIONE POSIZIONE MODIFICATA --- #}
     
     <script src="https://unpkg.com/konva@9.3.13/konva.min.js"></script>
     <script>
-        // --- INIZIO SCRIPT POTENZIATO ---
         const container = document.getElementById('room-plan-canvas');
         const stage = new Konva.Stage({ container: 'room-plan-canvas', width: container.offsetWidth, height: container.offsetHeight });
         const layer = new Konva.Layer();
@@ -49,53 +114,50 @@
         const currentBookshelfId = {{ book.bookshelf.id }};
         const currentBookShelfNumber = {{ book.shelf_number }};
 
-        // --- NUOVA LOGICA DI SCALING AUTOMATICO ---
-        const PADDING = 20; // Un po' di margine dai bordi
+        // Calcolo dello scaling automatico
+        const PADDING = 20;
         let maxX = 0;
         let maxY = 0;
         bookshelvesData.forEach(data => {
-            // Calcoliamo il punto più lontano raggiunto da ogni forma
             if (data.x + data.width > maxX) maxX = data.x + data.width;
             if (data.y + data.height > maxY) maxY = data.y + data.height;
         });
 
-        // Calcoliamo il fattore di scala per far entrare tutto
         const scaleX = (stage.width() - PADDING * 2) / (maxX || stage.width());
         const scaleY = (stage.height() - PADDING * 2) / (maxY || stage.height());
-        const scale = Math.min(scaleX, scaleY, 1); // Prende la scala più piccola, ma non ingrandisce (max 1)
+        const scale = Math.min(scaleX, scaleY, 1);
 
         const sceneGroup = new Konva.Group({ x: PADDING, y: PADDING, scaleX: scale, scaleY: scale });
         layer.add(sceneGroup);
-        // --- FINE LOGICA DI SCALING ---
 
+        // Disegno di ogni libreria
         bookshelvesData.forEach(data => {
             const isHighlighted = (data.id === currentBookshelfId);
             const normalFill = (data.shape_type === 'triangle') ? '#2ecc71' : '#5dade2';
             const highlightFill = '#f39c12';
+            const strokeWidth = isHighlighted ? 4/scale : 2/scale;
             
-            // Creiamo un gruppo per contenere la forma e il testo
             const group = new Konva.Group({
-                x: data.x, y: data.y, rotation: data.rotation,
-                listening: false // Il gruppo non è interattivo
+                x: data.x, y: data.y, rotation: data.rotation, listening: false
             });
 
             let shape;
             if (data.shape_type === 'triangle') {
-                shape = new Konva.RegularPolygon({ sides: 3, radius: Math.max(data.width, data.height) / 2, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: isHighlighted ? 4/scale : 2/scale });
+                shape = new Konva.RegularPolygon({ sides: 3, radius: Math.max(data.width, data.height) / 2, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: strokeWidth });
             } else {
-                shape = new Konva.Rect({ width: data.width, height: data.height, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: isHighlighted ? 4/scale : 2/scale });
+                shape = new Konva.Rect({ width: data.width, height: data.height, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: strokeWidth });
             }
             group.add(shape);
 
-            // --- RI-AGGIUNGIAMO IL TESTO ---
             const text = new Konva.Text({
                 text: data.name, fontSize: 14/scale, fill: '#fff', padding: 5/scale, align: 'center',
                 verticalAlign: 'middle', width: data.width, height: data.height
             });
             group.add(text);
             
-            sceneGroup.add(group); // Aggiungiamo il gruppo alla scena scalata
+            sceneGroup.add(group);
 
+            // Disegno dei ripiani interni solo sulla libreria evidenziata
             if (isHighlighted) {
                 const innerShelvesGroup = new Konva.Group({ x: data.x, y: data.y, rotation: data.rotation, listening: false });
                 const totalShelves = data.shelf_count;
@@ -113,7 +175,7 @@
                     });
                     innerShelvesGroup.add(shelfRect);
                 }
-                sceneGroup.add(innerShelvesGroup); // Aggiungiamo anche questo alla scena scalata
+                sceneGroup.add(innerShelvesGroup);
             }
         });
 
