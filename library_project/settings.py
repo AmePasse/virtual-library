@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config  # <-- AGGIUNGI QUESTO IMPORT
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k5xl4ay34u(k7pk$juv6a52j8p0zck9#l*me#xa)r(7p069j5b'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -122,4 +123,4 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Aggiungi questa riga in fondo al file settings.py
-GOOGLE_API_KEY = "AIzaSyDW04B1e3hHhC1F6Ub7IdLlmun2QWFH9MA"
+GOOGLE_API_KEY = config('GOOGLE_API_KEY')
