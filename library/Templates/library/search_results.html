@@ -1,0 +1,71 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <h2>Search Your Library</h2>
+
+    {# --- IL NOSTRO FORM DI RICERCA --- #}
+    <form method="GET" action="{% url 'book-search' %}" class="search-form" style="background: #f9f9f9; padding: 20px; border-radius: var(--border-radius); margin-bottom: 2em;">
+        <div style="display: flex; gap: 20px; align-items: flex-end;">
+            
+            <div style="flex-grow: 1;">
+                <label for="q" style="font-weight: bold;">Search by Title or Author</label>
+                <input type="text" name="q" id="q" placeholder="e.g., Orwell, 1984, Dostoevskij..." value="{{ query|default:'' }}" style="width: 100%;">
+            </div>
+
+            <div>
+                <label for="rating" style="font-weight: bold;">Minimum Rating</label>
+                <select name="rating" id="rating">
+                    <option value="">Any Rating</option>
+                    <option value="5" {% if rating_filter == '5' %}selected{% endif %}>★★★★★</option>
+                    <option value="4" {% if rating_filter == '4' %}selected{% endif %}>★★★★☆ & Up</option>
+                    <option value="3" {% if rating_filter == '3' %}selected{% endif %}>★★★☆☆ & Up</option>
+                    <option value="2" {% if rating_filter == '2' %}selected{% endif %}>★★☆☆☆ & Up</option>
+                    <option value="1" {% if rating_filter == '1' %}selected{% endif %}>★☆☆☆☆ & Up</option>
+                </select>
+            </div>
+            
+            <div>
+                <button type="submit" class="btn">Search</button>
+            </div>
+        </div>
+    </form>
+
+    {# --- SEZIONE PER MOSTRARE I RISULTATI --- #}
+    {% if query %}
+        <h3>Results for "{{ query }}"</h3>
+    {% endif %}
+
+    {# --- INIZIA LA SEZIONE DA SOSTITUIRE --- #}
+    <div class="card-grid">
+        {% for book in books %}
+            <a href="{% url 'book-detail' book.id %}" class="card book-card">
+                <div class="book-card-image-wrapper">
+                    {% if book.cover_url %}
+                        <img src="{{ book.cover_url }}" alt="Copertina di {{ book.title }}" class="book-card-image">
+                    {% else %}
+                        <div class="book-card-placeholder">
+                            <span>{{ book.title }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="book-card-content">
+                    <h3 class="book-card-title">{{ book.title }}</h3>
+                    <p class="book-card-author">di {{ book.author }}</p>
+                    {% if book.user_rating %}
+                        <p class="book-card-rating">Tuo voto: {{ book.user_rating }} / 5</p>
+                    {% endif %}
+                </div>
+            </a>
+        {% empty %}
+            <div class="card">
+                {% if query or rating_filter %}
+                    <p>Nessun libro trovato con i tuoi criteri.</p>
+                {% else %}
+                    <p>Inizia una ricerca per trovare libri nella tua libreria.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    {# --- FINISCE LA SEZIONE DA SOSTITUIRE --- #}
+
+{% endblock %}

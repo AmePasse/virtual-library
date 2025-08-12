@@ -1,0 +1,46 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <h2>Digitize a Shelf</h2>
+    <p>Upload a picture of your bookshelf to automatically add books.</p>
+
+    {# --- PASSO 1: Aggiungi un id al form --- #}
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="image">Select image:</label><br>
+            <input type="file" name="image" required multiple>
+        </div>
+
+        <div class="form-group">
+            <label for="bookshelf">Add to which bookshelf?</label><br>
+            <select name="bookshelf" required>
+                <option value="" selected disabled>--- Choose a bookshelf ---</option>
+                {% for shelf in bookshelves %}
+                    <option value="{{ shelf.id }}">{{ shelf.name }} (in {{ shelf.room.name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="shelf_number">On which shelf number?</label><br>
+            <input type="number" name="shelf_number" value="1" required>
+        </div>
+
+        <hr>
+        <button type="submit" class="btn">Upload and Analyze</button>
+    </form>
+    
+    {# --- PASSO 2: Aggiungi lo script che attiva l'overlay --- #}
+    <script>
+        const uploadForm = document.getElementById('upload-form');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        uploadForm.addEventListener('submit', function() {
+            // Quando il form viene inviato, mostra l'overlay
+            loadingOverlay.style.display = 'flex';
+        });
+    </script>
+
+{% endblock %}

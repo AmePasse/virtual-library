@@ -1,0 +1,222 @@
+{% extends "library/base.html" %}
+{% block content %}
+
+<style>
+    /* Aggiungiamo un po' di stile direttamente qui per semplicità */
+    .editor-layout { display: flex; gap: 20px; align-items: flex-start; }
+    .editor-canvas { flex-grow: 1; }
+    .editor-panel { width: 250px; padding: 20px; background: #f9f9f9; border-radius: var(--border-radius); }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+</style>
+
+<h2>Editor Layout: {{ room.name }}</h2>
+<a href="{% url 'bookshelf-list' room.id %}" style="margin-bottom: 1em; display: inline-block;">&laquo; Torna alla vista stanza</a>
+
+<div class="editor-layout">
+    <div class="editor-canvas">
+        <div id="canvas-container" style="width: 100%; height: 600px; background-color: #f0f0f0; border: 1px solid #ccc;"></div>
+    </div>
+    <div class="editor-panel">
+        
+        <h4>Aggiungi Libreria</h4>
+        <div class="form-group">
+            <label for="new-shelf-name">Nome</label>
+            <input type="text" id="new-shelf-name" value="Nuova Libreria">
+        </div>
+        <div class="form-group">
+            <label for="new-shelf-shape">Forma</label>
+            <select id="new-shelf-shape">
+                <option value="rectangle">Rettangolo</option>
+                <option value="square">Quadrato</option>
+                <option value="triangle">Triangolo</option>
+            </select>
+        </div>
+        <button id="add-shelf-btn" class="btn">Aggiungi</button>
+        <hr>
+        
+        <div id="selection-panel" style="display:none;">
+            <h4>Proprietà Oggetto</h4>
+            <div class="form-group">
+                <label for="selected-name">Nome:</label>
+                {# Rimosso 'readonly' per renderlo modificabile #}
+                <input type="text" id="selected-name">
+            </div>
+            <div class="form-group">
+                <label for="selected-shape">Forma:</label>
+                <select id="selected-shape">
+                    <option value="rectangle">Rettangolo</option>
+                    <option value="square">Quadrato</option>
+                    <option value="triangle">Triangolo</option>
+                </select>
+            </div>
+            {# Questo pulsante salva le proprietà dell'oggetto selezionato #}
+            <button id="apply-props-btn" class="btn">Applica Proprietà</button>
+            <hr style="margin-top: 20px; margin-bottom: 20px;">
+            <button id="delete-shelf-btn" class="btn" style="background-color: #e74c3c; width: 100%;">Cancella Selezionato</button>
+        </div>
+    </div>
+</div>
+{# Questo pulsante ora salva SOLO le posizioni, dimensioni e rotazioni #}
+<button id="save-layout-btn" class="btn" style="margin-top: 1em;">Salva Layout</button>
+
+<script src="https://unpkg.com/konva@9.3.13/konva.min.js"></script>
+<script>
+    const stage = new Konva.Stage({ container: 'canvas-container', width: 850, height: 600 });
+    const layer = new Konva.Layer();
+    stage.add(layer);
+    const transformer = new Konva.Transformer({ rotateEnabled: true, resizeEnabled: true });
+    layer.add(transformer);
+
+    const shelvesMap = new Map();
+    const initialShelves = [ {% for shelf in bookshelves %}{ id: {{ shelf.id }}, name: `{{ shelf.name|escapejs }}`, x: {{ shelf.pos_x }}, y: {{ shelf.pos_y }}, width: {{ shelf.width }}, height: {{ shelf.height }}, shape_type: `{{ shelf.shape_type }}`, rotation: {{ shelf.rotation }} },{% endfor %} ];
+    initialShelves.forEach(data => shelvesMap.set(data.id, data));
+    
+    let selectedShape = null;
+
+    function createShape(data) {
+        let shape;
+        const width = data.width || 150;
+        const height = data.height || 50;
+
+        if (data.shape_type === 'triangle') {
+            shape = new Konva.RegularPolygon({ sides: 3, radius: Math.max(width, height) / 2, fill: '#2ecc71', stroke: '#27ae60' });
+        } else {
+            shape = new Konva.Rect({ width: width, height: height, fill: '#5dade2', stroke: '#2874a6' });
+        }
+        
+        const group = new Konva.Group({ x: data.x, y: data.y, draggable: true, id: String(data.id), rotation: data.rotation });
+        group.add(shape);
+        const text = new Konva.Text({ text: data.name, fontSize: 14, fill: '#fff', padding: 5, align: 'center', verticalAlign: 'middle', width: width, height: height, listening: false });
+        group.add(text);
+        layer.add(group);
+        return group;
+    }
+
+    function morphShape(group, newShapeType) {
+        const id = parseInt(group.id());
+        const oldData = shelvesMap.get(id);
+        const newData = { ...oldData, shape_type: newShapeType };
+        shelvesMap.set(id, newData);
+        transformer.nodes([]);
+        group.destroy();
+        const newGroup = createShape(newData);
+        selectedShape = newGroup;
+        transformer.nodes([newGroup]);
+        layer.draw();
+    }
+    
+    shelvesMap.forEach(createShape);
+    layer.draw();
+
+    stage.on('click tap', function(e) {
+        if (e.target === stage) {
+            transformer.nodes([]);
+            document.getElementById('selection-panel').style.display = 'none';
+            selectedShape = null;
+            return;
+        }
+        const group = e.target.getParent();
+        if (group && group.draggable()) {
+            transformer.nodes([group]);
+            selectedShape = group;
+            
+            const data = shelvesMap.get(parseInt(selectedShape.id()));
+            const panel = document.getElementById('selection-panel');
+            panel.style.display = 'block';
+            document.getElementById('selected-name').value = data.name;
+            document.getElementById('selected-shape').value = data.shape_type;
+        }
+    });
+
+    async function apiCall(method, body) {
+        const response = await fetch(`/api/bookshelf/`, {
+            method: method,
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify(body)
+        });
+        return response.json();
+    }
+
+    document.getElementById('add-shelf-btn').addEventListener('click', async () => {
+        const name = document.getElementById('new-shelf-name').value;
+        const shape = document.getElementById('new-shelf-shape').value;
+        const newShelfData = await apiCall('POST', { room_id: {{ room.id }}, name: name, shape_type: shape });
+        if (newShelfData.id) {
+            shelvesMap.set(newShelfData.id, newShelfData);
+            createShape(newShelfData);
+            layer.draw();
+        }
+    });
+
+    document.getElementById('delete-shelf-btn').addEventListener('click', async () => {
+        if (selectedShape) {
+            const idToDelete = parseInt(selectedShape.id());
+            const result = await apiCall('DELETE', { id: idToDelete });
+            if (result.status === 'success') {
+                transformer.nodes([]);
+                selectedShape.destroy();
+                shelvesMap.delete(idToDelete);
+                layer.draw();
+                document.getElementById('selection-panel').style.display = 'none';
+                selectedShape = null;
+            }
+        }
+    });
+
+    // --- NUOVO EVENT LISTENER PER IL PULSANTE "APPLICA PROPRIETÀ" ---
+    document.getElementById('apply-props-btn').addEventListener('click', async () => {
+        if (!selectedShape) return;
+        
+        const id = parseInt(selectedShape.id());
+        const oldData = shelvesMap.get(id);
+        const newName = document.getElementById('selected-name').value;
+        const newShapeType = document.getElementById('selected-shape').value;
+
+        // Aggiorna il testo sulla forma in tempo reale
+        selectedShape.findOne('Text').text(newName);
+        
+        // Aggiorna la forma se è cambiata
+        if (oldData.shape_type !== newShapeType) {
+            morphShape(selectedShape, newShapeType);
+        }
+        
+        // Aggiorna la nostra copia locale dei dati
+        const newData = { ...oldData, name: newName, shape_type: newShapeType };
+        shelvesMap.set(id, newData);
+        
+        // Prepara i dati da inviare all'API per salvare SOLO nome e forma
+        const dataToSave = { id: id, name: newName, shape_type: newShapeType };
+
+        const result = await apiCall('PUT', [dataToSave]); // L'API si aspetta sempre una lista
+        alert(result.message || "Proprietà salvate!");
+        layer.draw();
+    });
+
+    // Modifichiamo il "Salva Layout" per salvare solo i dati di layout
+    document.getElementById('save-layout-btn').addEventListener('click', async () => {
+        const layoutData = [];
+        layer.find('Group').forEach(group => {
+            if (group.draggable()) {
+                const id = parseInt(group.id());
+                const shapeNode = group.findOne('Rect, RegularPolygon');
+                layoutData.push({ 
+                    id: id,
+                    x: Math.round(group.x()), 
+                    y: Math.round(group.y()),
+                    width: Math.round(shapeNode.width() * group.scaleX()),
+                    height: Math.round(shapeNode.height() * group.scaleY()),
+                    rotation: Math.round(group.rotation()),
+                });
+            }
+        });
+        if (layoutData.length > 0) {
+            const result = await apiCall('PUT', layoutData);
+            alert(result.message || "Layout salvato!");
+        } else {
+            alert("Nessuna libreria da salvare.");
+        }
+    });
+</script>
+{% endblock %}

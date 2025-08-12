@@ -1,0 +1,89 @@
+{% extends "library/base.html" %}
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Librerie in {{ room.name }}</h2>
+    <a href="{% url 'room-editor' room.id %}" class="btn">Modifica Layout Stanza</a>
+</div>
+<a href="{% url 'library-home' %}">&laquo; Torna a tutte le stanze</a>
+
+<div style="display: flex; margin-top: 2em; gap: 30px;">
+    <div style="flex: 2;">
+        <h4>Piantina</h4>
+        <div id="canvas-container" style="width: 100%; height: 600px; background-color: #f9f9f9; border: 1px solid var(--border-color);"></div>
+    </div>
+    <div style="flex: 1;">
+        <h4>Lista Librerie</h4>
+        <div id="card-list-container">
+            {% for shelf in bookshelves %}
+                {# Questa card ha già il link corretto, e la lasciamo così #}
+                <a href="{% url 'book-list' shelf.id %}" class="card bookshelf-card" data-shelf-id="{{ shelf.id }}">
+                    <h3>{{ shelf.name }}</h3>
+                    <p>{{ shelf.books.count }} libri.</p>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/konva@9.3.13/konva.min.js"></script>
+<script>
+    // --- CORREZIONE CHIAVE (Parte 1): Creiamo il "ponte" ---
+    // Usiamo Django per creare un template dell'URL, usando '0' come placeholder per l'ID.
+    const bookListUrlPattern = "{% url 'book-list' 0 %}";
+
+    const stage = new Konva.Stage({ container: 'canvas-container', width: 700, height: 600 });
+    const layer = new Konva.Layer();
+    stage.add(layer);
+
+    const shelvesData = [ {% for shelf in bookshelves %}{ id: {{ shelf.id }}, name: `{{ shelf.name|escapejs }}`, x: {{ shelf.pos_x }}, y: {{ shelf.pos_y }}, width: {{ shelf.width }}, height: {{ shelf.height }}, shape_type: `{{ shelf.shape_type }}`, rotation: {{ shelf.rotation }} },{% endfor %} ];
+    const shapes = {};
+
+    shelvesData.forEach(data => {
+        let shape;
+        const commonProps = { x: data.x, y: data.y, id: 'shape-' + data.id, rotation: data.rotation };
+        if (data.shape_type === 'triangle') {
+            shape = new Konva.RegularPolygon({ ...commonProps, sides: 3, radius: Math.max(data.width, data.height) / 2, fill: '#2ecc71', stroke: '#27ae60', strokeWidth: 2 });
+        } else {
+            shape = new Konva.Rect({ ...commonProps, width: data.width, height: data.height, fill: '#5dade2', stroke: '#2874a6', strokeWidth: 2 });
+        }
+
+        shape.on('mouseover', () => {
+            shape.opacity(0.7);
+            document.querySelector(`.bookshelf-card[data-shelf-id="${data.id}"]`).style.transform = 'scale(1.03)';
+        });
+        shape.on('mouseout', () => {
+            shape.opacity(1);
+            document.querySelector(`.bookshelf-card[data-shelf-id="${data.id}"]`).style.transform = 'scale(1)';
+        });
+
+        // --- CORREZIONE CHIAVE (Parte 2): Usiamo il nostro template URL ---
+        shape.on('click', () => {
+            // Sostituiamo il placeholder '0' con l'ID corretto
+            const finalUrl = bookListUrlPattern.replace('0', data.id);
+            window.location.href = finalUrl;
+        });
+        
+        layer.add(shape);
+        shapes[data.id] = shape;
+    });
+
+    // Aggiungiamo anche l'interattività alle card
+    document.querySelectorAll('.bookshelf-card').forEach(card => {
+        const shelfId = card.dataset.shelfId;
+        const shape = shapes[shelfId];
+
+        card.addEventListener('mouseover', function() {
+            if(shape) shape.opacity(0.7);
+            this.style.transform = 'scale(1.03)';
+        });
+
+        card.addEventListener('mouseout', function() {
+            if(shape) shape.opacity(1);
+            this.style.transform = 'scale(1)';
+        });
+    });
+
+    layer.draw();
+</script>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <a href="{% url 'book-list' book.bookshelf.id %}">&laquo; Torna a {{ book.bookshelf.name }}</a>
+    <hr>
+
+    {# Contenitore principale per i dettagli del libro (invariato) #}
+    <div class="book-detail-container">
+        {# ... codice della copertina e delle info del libro ... #}
+    </div>
+
+    {# --- SEZIONE POSIZIONE --- #}
+    <div class="location-section">
+        <hr style="margin: 2em 0;">
+        <h3>Posizione del Libro</h3>
+
+        <div class="location-container">
+            <div class="location-text">
+                <p><strong>Stanza:</strong> {{ book.bookshelf.room.name }}</p>
+                <p><strong>Libreria:</strong> {{ book.bookshelf.name }}</p>
+                <p><strong>Ripiano:</strong> {{ book.shelf_number }}</p>
+            </div>
+
+            <div class="location-visualizer">
+                <div id="room-plan-canvas" style="width: 100%; height: 400px; background-color: #f9f9f9; border: 1px solid var(--border-color); border-radius: var(--border-radius);"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/konva@9.3.13/konva.min.js"></script>
+    <script>
+        // --- INIZIO SCRIPT POTENZIATO ---
+        const container = document.getElementById('room-plan-canvas');
+        const stage = new Konva.Stage({ container: 'room-plan-canvas', width: container.offsetWidth, height: container.offsetHeight });
+        const layer = new Konva.Layer();
+        stage.add(layer);
+
+        const bookshelvesData = [
+            {% for shelf in bookshelves_in_room %}
+            {
+                id: {{ shelf.id }}, name: `{{ shelf.name|escapejs }}`,
+                x: {{ shelf.pos_x }}, y: {{ shelf.pos_y }},
+                width: {{ shelf.width }}, height: {{ shelf.height }},
+                shape_type: `{{ shelf.shape_type }}`, rotation: {{ shelf.rotation }},
+                shelf_count: {{ shelf.shelf_count }}
+            },
+            {% endfor %}
+        ];
+        const currentBookshelfId = {{ book.bookshelf.id }};
+        const currentBookShelfNumber = {{ book.shelf_number }};
+
+        // --- NUOVA LOGICA DI SCALING AUTOMATICO ---
+        const PADDING = 20; // Un po' di margine dai bordi
+        let maxX = 0;
+        let maxY = 0;
+        bookshelvesData.forEach(data => {
+            // Calcoliamo il punto più lontano raggiunto da ogni forma
+            if (data.x + data.width > maxX) maxX = data.x + data.width;
+            if (data.y + data.height > maxY) maxY = data.y + data.height;
+        });
+
+        // Calcoliamo il fattore di scala per far entrare tutto
+        const scaleX = (stage.width() - PADDING * 2) / (maxX || stage.width());
+        const scaleY = (stage.height() - PADDING * 2) / (maxY || stage.height());
+        const scale = Math.min(scaleX, scaleY, 1); // Prende la scala più piccola, ma non ingrandisce (max 1)
+
+        const sceneGroup = new Konva.Group({ x: PADDING, y: PADDING, scaleX: scale, scaleY: scale });
+        layer.add(sceneGroup);
+        // --- FINE LOGICA DI SCALING ---
+
+        bookshelvesData.forEach(data => {
+            const isHighlighted = (data.id === currentBookshelfId);
+            const normalFill = (data.shape_type === 'triangle') ? '#2ecc71' : '#5dade2';
+            const highlightFill = '#f39c12';
+            
+            // Creiamo un gruppo per contenere la forma e il testo
+            const group = new Konva.Group({
+                x: data.x, y: data.y, rotation: data.rotation,
+                listening: false // Il gruppo non è interattivo
+            });
+
+            let shape;
+            if (data.shape_type === 'triangle') {
+                shape = new Konva.RegularPolygon({ sides: 3, radius: Math.max(data.width, data.height) / 2, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: isHighlighted ? 4/scale : 2/scale });
+            } else {
+                shape = new Konva.Rect({ width: data.width, height: data.height, fill: isHighlighted ? highlightFill : normalFill, stroke: '#34495e', strokeWidth: isHighlighted ? 4/scale : 2/scale });
+            }
+            group.add(shape);
+
+            // --- RI-AGGIUNGIAMO IL TESTO ---
+            const text = new Konva.Text({
+                text: data.name, fontSize: 14/scale, fill: '#fff', padding: 5/scale, align: 'center',
+                verticalAlign: 'middle', width: data.width, height: data.height
+            });
+            group.add(text);
+            
+            sceneGroup.add(group); // Aggiungiamo il gruppo alla scena scalata
+
+            if (isHighlighted) {
+                const innerShelvesGroup = new Konva.Group({ x: data.x, y: data.y, rotation: data.rotation, listening: false });
+                const totalShelves = data.shelf_count;
+                const shelfHeight = data.height / totalShelves;
+
+                for (let i = 1; i <= totalShelves; i++) {
+                    const isBookOnThisShelf = (i === currentBookShelfNumber);
+                    const shelfRect = new Konva.Rect({
+                        y: data.height - (shelfHeight * i),
+                        width: data.width,
+                        height: shelfHeight,
+                        fill: isBookOnThisShelf ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.2)',
+                        stroke: isBookOnThisShelf ? '#34495e' : 'transparent',
+                        strokeWidth: 2/scale
+                    });
+                    innerShelvesGroup.add(shelfRect);
+                }
+                sceneGroup.add(innerShelvesGroup); // Aggiungiamo anche questo alla scena scalata
+            }
+        });
+
+        layer.draw();
+    </script>
+{% endblock %}

@@ -1,0 +1,17 @@
+# .gitignore
+
+# File di segreti
+.env
+
+# Ambiente virtuale di Python
+/venv/
+
+# Cartelle di cache di Python
+__pycache__/
+*.pyc
+
+# Cache di VS Code
+.vscode/
+
+# Database di sviluppo (se usi SQLite)
+db.sqlite3

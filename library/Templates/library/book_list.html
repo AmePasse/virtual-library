@@ -1,0 +1,105 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <h2>Libri in {{ bookshelf.name }}</h2>
+    <a href="{% url 'bookshelf-list' bookshelf.room.id %}">&laquo; Torna a {{ bookshelf.room.name }}</a>
+
+    <div class="bookshelf-view-container">
+
+        {# COLONNA SINISTRA: Le card dei libri #}
+        <div class="book-grid-column">
+            <div class="card-grid" style="margin-top: 2em;">
+                {% for book in all_books %}
+                    {# --- INIZIA IL BLOCCO CORRETTO E COMPLETO --- #}
+                    <a href="{% url 'book-detail' book.id %}" class="card book-card" data-shelf-number="{{ book.shelf_number }}">
+                        <div class="book-card-image-wrapper">
+                            {% if book.cover_url %}
+                                <img src="{{ book.cover_url }}" alt="Copertina di {{ book.title }}" class="book-card-image">
+                            {% else %}
+                                <div class="book-card-placeholder">
+                                    <span>{{ book.title }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="book-card-content">
+                            <h3 class="book-card-title">{{ book.title }}</h3>
+                            <p class="book-card-author">di {{ book.author }}</p>
+                        </div>
+                    </a>
+                    {# --- FINISCE IL BLOCCO CORRETTO E COMPLETO --- #}
+                {% empty %}
+                    <div class="card"><p>Nessun libro trovato in questa libreria.</p></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# COLONNA DESTRA: La visualizzazione dello scaffale (MODIFICATA) #}
+        <div class="shelf-display-column">
+            
+            {# --- INIZIA LA SEZIONE DA AGGIUNGERE/MODIFICARE --- #}
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <h4>Visualizzazione Scaffale</h4>
+                
+                {# Il nostro nuovo form per modificare il numero di ripiani #}
+                <form action="{% url 'update-shelf-count' bookshelf.id %}" method="POST" style="display: flex; align-items: center; gap: 10px;">
+                    {% csrf_token %}
+                    <label for="shelf-count-input" style="font-size: 0.9em;">Ripiani:</label>
+                    <input type="number" name="new_shelf_count" id="shelf-count-input" value="{{ bookshelf.shelf_count }}" min="1" max="20" style="width: 60px; padding: 5px;">
+                    <button type="submit" class="btn" style="padding: 5px 10px; font-size: 0.9em;">✓</button>
+                </form>
+            </div>
+            {# --- FINISCE LA SEZIONE DA AGGIUNGERE/MODIFICARE --- #}
+
+            <div class="shelf-frame">
+                {% for shelf_num, books_on_shelf in shelves_with_books.items %}
+                    <div class="shelf" data-shelf-number="{{ shelf_num }}">
+                        <span class="shelf-number">{{ shelf_num }}</span>
+                        {% for book in books_on_shelf %}
+                            <div class="book-spine"></div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# --- AGGIUNGEREMO IL NOSTRO JAVASCRIPT QUI SOTTO --- #}
+    {# In library/templates/library/book_list.html, alla fine del file #}
+
+<script>
+    // 1. Seleziona tutte le card dei libri
+    const bookCards = document.querySelectorAll('.book-card');
+
+    // 2. Per ogni card, aggiungi due "ascoltatori di eventi"
+    bookCards.forEach(card => {
+        
+        // Quando il mouse ENTRA nella card...
+        card.addEventListener('mouseover', () => {
+            // ...leggi il numero del ripiano dal suo data-attribute
+            const shelfNumber = card.dataset.shelfNumber;
+            
+            // Trova il ripiano corrispondente usando lo stesso data-attribute
+            const targetShelf = document.querySelector(`.shelf[data-shelf-number="${shelfNumber}"]`);
+
+            // Se lo trova, aggiungi la classe per l'evidenziazione
+            if (targetShelf) {
+                targetShelf.classList.add('shelf--highlighted');
+            }
+        });
+
+        // Quando il mouse ESCE dalla card...
+        card.addEventListener('mouseout', () => {
+            // ...leggi di nuovo il numero del ripiano
+            const shelfNumber = card.dataset.shelfNumber;
+            
+            // Trova il ripiano corrispondente
+            const targetShelf = document.querySelector(`.shelf[data-shelf-number="${shelfNumber}"]`);
+
+            // Se lo trova, RIMUOVI la classe per l'evidenziazione
+            if (targetShelf) {
+                targetShelf.classList.remove('shelf--highlighted');
+            }
+        });
+    });
+</script>
+{% endblock %}

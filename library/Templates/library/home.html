@@ -1,0 +1,15 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <h2>Le Mie Stanze</h2>
+    <div class="card-grid">
+        {% for room in rooms %}
+            <a href="{% url 'bookshelf-list' room.id %}" class="card">
+                <h3>{{ room.name }}</h3>
+                <p>{{ room.bookshelves.count }} librerie in questa stanza.</p>
+            </a>
+        {% empty %}
+            <p>Non hai ancora creato nessuna stanza. Inizia dall'Admin Panel!</p>
+        {% endfor %}
+    </div>
+{% endblock %}

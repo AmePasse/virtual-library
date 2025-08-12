@@ -1,0 +1,16 @@
+{% extends "library/base.html" %}
+
+{% block content %}
+    <h2>Modifica: {{ book.title }}</h2>
+    <a href="{% url 'book-detail' book.id %}">&laquo; Annulla e torna ai dettagli</a>
+
+    <form method="POST" style="margin-top: 2em;">
+        {% csrf_token %}
+        
+        {# Django renderizzerà i campi del nostro BookForm #}
+        {{ form.as_p }}
+        
+        <button type="submit" class="btn">Salva Modifiche</button>
+    </form>
+
+{% endblock %}
