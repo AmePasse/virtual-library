@@ -7,7 +7,8 @@ This project allows you to digitize and organize your personal book collection b
 Organize your collection into virtual "rooms" and "bookshelves," search your entire catalog, and visually locate any book on its shelf.
 
 <!-- TODO: Add a GIF or screenshot of the application in action. e.g., showing the room editor or the book list. -->
-![App Screenshot Placeholder](https://via.placeholder.com/800x450.png?text=Virtual+Library+Screenshot)
+
+<img width="1723" height="1646" alt="immagine" src="https://github.com/user-attachments/assets/c1fc2328-2c3f-415d-8095-da24b06e1e5b" />
 
 ## Key Features
 
